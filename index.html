@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMA Coin Miner</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1a1a1a;
+            color: #0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            border: 2px solid #0f0;
+            padding: 20px;
+            width: 90%;
+            max-width: 600px;
+            background-color: #000;
+            box-shadow: 0 0 15px #0f0;
+        }
+        h1 {
+            text-align: center;
+            color: #0f0;
+            text-shadow: 0 0 5px #0f0;
+        }
+        .block-info {
+            margin-bottom: 20px;
+            border: 1px dashed #0f0;
+            padding: 15px;
+        }
+        .block-info p {
+            margin: 5px 0;
+            word-wrap: break-word;
+        }
+        .block-info span {
+            color: #fff;
+        }
+        #data-input {
+            width: calc(100% - 12px);
+            background-color: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        button:hover {
+            background-color: #fff;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        .output {
+            margin-top: 20px;
+            border-top: 2px solid #0f0;
+            padding-top: 10px;
+        }
+        #mining-log {
+            height: 100px;
+            overflow-y: scroll;
+            background: #050505;
+            border: 1px solid #0f0;
+            padding: 5px;
+            margin-top: 10px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TMA Proof-of-Work Miner</h1>
+        <div class="block-info">
+            <p>Block #: <span id="block-number">1</span></p>
+            <p>Data: <textarea id="data-input" rows="2">TMA Block #1 Data</textarea></p>
+            <p>Difficulty: <span id="difficulty">4</span> (leading zeros)</p>
+            <p>Previous Hash: <span id="previous-hash">0000000000000000000000000000000000000000000000000000000000000000</span></p>
+        </div>
+        <button id="mine-button">Start Mining</button>
+        <div class="output">
+            <p>Nonce: <span id="nonce-value">-</span></p>
+            <p>Hash: <span id="hash-value">-</span></p>
+            <p>Time Taken: <span id="time-taken">-</span></p>
+        </div>
+        <div id="mining-log"></div>
+    </div>
+    <script>
+        const mineButton = document.getElementById('mine-button');
+        const blockNumberEl = document.getElementById('block-number');
+        const dataInput = document.getElementById('data-input');
+        const difficultyEl = document.getElementById('difficulty');
+        const previousHashEl = document.getElementById('previous-hash');
+        const nonceValueEl = document.getElementById('nonce-value');
+        const hashValueEl = document.getElementById('hash-value');
+        const timeTakenEl = document.getElementById('time-taken');
+        const miningLog = document.getElementById('mining-log');
+
+        // Helper function to calculate SHA-256 hash
+        async function calculateSHA256(input) {
+            const textAsBuffer = new TextEncoder().encode(input);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', textAsBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        function log(message) {
+            miningLog.innerHTML += message + '<br>';
+            miningLog.scrollTop = miningLog.scrollHeight;
+        }
+
+        // The mining function
+        async function mine() {
+            mineButton.disabled = true;
+            log('Mining started...');
+            nonceValueEl.textContent = '-';
+            hashValueEl.textContent = '-';
+            timeTakenEl.textContent = '-';
+            miningLog.innerHTML = '';
+
+            const blockNumber = blockNumberEl.textContent;
+            const data = dataInput.value;
+            const difficulty = parseInt(difficultyEl.textContent);
+            const previousHash = previousHashEl.textContent;
+            const target = '0'.repeat(difficulty);
+
+            let nonce = 0;
+            let hash = '';
+            const startTime = performance.now();
+
+            while (true) {
+                const blockString = blockNumber + data + previousHash + nonce;
+                hash = await calculateSHA256(blockString);
+
+                if (nonce % 1000 === 0) { // Update UI periodically to avoid freezing
+                    log(`Trying Nonce: ${nonce}, Hash: ${hash.substring(0, 20)}...`);
+                    // Yield to the main thread to allow UI updates
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+
+                if (hash.startsWith(target)) {
+                    const endTime = performance.now();
+                    const timeTaken = ((endTime - startTime) / 1000).toFixed(2);
+
+                    nonceValueEl.textContent = nonce;
+                    hashValueEl.textContent = hash;
+                    timeTakenEl.textContent = `${timeTaken} seconds`;
+                    log(`<b>Mined!</b> Hash: ${hash}`);
+                    mineButton.disabled = false;
+                    break;
+                }
+                nonce++;
+            }
+        }
+
+        mineButton.addEventListener('click', mine);
+    </script>
+</body>
+</html>
